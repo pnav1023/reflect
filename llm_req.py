@@ -3,16 +3,13 @@ import os
 from dotenv import load_dotenv
 import streamlit as st
 
-
 def get_questions(client, relevant_entries):
-    load_dotenv()
-
     completion = client.chat.completions.create(
         messages=[
                 {
                     "role": "assistant",
                     "content": f"""
-                        you are my therapist.
+                        you are my therapist. Ask me a relevant question to help me reflect on my recent experiences.
                         Here are my relevant journal entries as context: {relevant_entries}
                     """,
                 }
@@ -44,23 +41,22 @@ def get_chat_bot(relevant_entries):
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
-    if st.session_state.set_context:
-        if prompt := st.chat_input("What is up?"):
-            st.session_state.messages.append({"role": "user", "content": prompt})
-            with st.chat_message("user"):
-                st.markdown(prompt)
+    if prompt := st.chat_input("What is up?"):
+        st.session_state.messages.append({"role": "user", "content": prompt})
+        with st.chat_message("user"):
+            st.markdown(prompt)
 
-            # Send prompt to Groq API
-            with st.chat_message("assistant"):
-                response = client.chat.completions.create(
-                    model="gpt-4o",
-                    messages=[
-                        {"role": m["role"], "content": m["content"]}
-                        for m in st.session_state.messages
-                    ]
-                )
-                # Display response
-                st.markdown(response.choices[0].message.content)
-            st.session_state.messages.append(
-                {"role": "assistant", "content": response.choices[0].message.content}
+        # Send prompt to Groq API
+        with st.chat_message("assistant"):
+            response = client.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {"role": m["role"], "content": m["content"]}
+                    for m in st.session_state.messages
+                ]
             )
+            # Display response
+            st.markdown(response.choices[0].message.content)
+        st.session_state.messages.append(
+            {"role": "assistant", "content": response.choices[0].message.content}
+        )
