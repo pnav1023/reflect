@@ -1,23 +1,66 @@
 from openai import OpenAI
 import os
 from dotenv import load_dotenv
+import streamlit as st
 
 
-def get_question(entries):
+def get_questions(client, relevant_entries):
+    load_dotenv()
+
+    completion = client.chat.completions.create(
+        messages=[
+                {
+                    "role": "assistant",
+                    "content": f"""
+                        you are my therapist.
+                        Here are my relevant journal entries as context: {relevant_entries}
+                    """,
+                }
+            ],
+        model="gpt-4o",
+    )
+
+    return completion
+
+def get_chat_bot(relevant_entries):
     load_dotenv()
 
     client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-    completion = client.chat.completions.create(
-        model="gpt-4o",
-        messages=[
-            {"role": "user", 
-            "content": f"""
-            Give me 3 questions a therapist might ask and make it personalized based on the following info.
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
+    if "set_context" not in st.session_state:
+        st.session_state.set_context = False
 
-            journal entries: {entries}
-            """}
-        ]
-    )
+    # Handle user input
+    if not st.session_state.set_context:
+        chat_completion = get_questions(client, relevant_entries)
+        st.session_state.messages.append(
+            {"role": "assistant", "content": chat_completion.choices[0].message.content}
+        )
+        st.session_state.set_context = True
 
-    return completion.choices[0].message.content
+    for message in st.session_state.messages:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+
+    if st.session_state.set_context:
+        if prompt := st.chat_input("What is up?"):
+            st.session_state.messages.append({"role": "user", "content": prompt})
+            with st.chat_message("user"):
+                st.markdown(prompt)
+
+            # Send prompt to Groq API
+            with st.chat_message("assistant"):
+                response = client.chat.completions.create(
+                    model="gpt-4o",
+                    messages=[
+                        {"role": m["role"], "content": m["content"]}
+                        for m in st.session_state.messages
+                    ]
+                )
+                # Display response
+                st.markdown(response.choices[0].message.content)
+            st.session_state.messages.append(
+                {"role": "assistant", "content": response.choices[0].message.content}
+            )
